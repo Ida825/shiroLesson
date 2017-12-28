@@ -1,0 +1,9 @@
+eclipse.preferences.version=1
+encoding//src/main/java/cn/et/conf/MyDbRealm.java=UTF-8
+encoding//src/main/java/cn/et/conf/MyFilter.java=UTF-8
+encoding//src/main/java/cn/et/shiro/controller/SpringLoginController.java=GBK
+encoding//src/main/java/cn/et/shiro/dao/UserMapper.java=GBK
+encoding//src/main/resources/my.ini=UTF-8
+encoding//src/main/webapp/WEB-INF/my.ini=UTF-8
+encoding//src/main/webapp/layout.jsp=UTF-8
+encoding/<project>=UTF-8

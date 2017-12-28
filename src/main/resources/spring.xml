@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+	http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd
+	http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+	http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+	http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+	http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.0.xsd
+	">
+
+	<!-- Spring是bean的容器（service+repository） -->
+	<!-- 配置扫描 (排除扫描控制层)-->
+	<context:component-scan base-package="cn">
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+	</context:component-scan>
+
+	<!-- 所有数据库操作的源头 实现子接口DataSource 
+		DriverManagerDataSource （请求产生一个连接 用完关闭）应该让连接重用==连接池
+		常用的数据库连接池：proxool,c3p0,dbcp,DBPool      阿里巴巴的druid(监控)
+	-->
+	<!-- 配置druid数据源 -->
+	<context:property-placeholder location="classpath:jdbc.properties"/>
+	<bean id="dateSource" class="com.alibaba.druid.pool.DruidDataSource">
+		<property name="url" value="${url}"></property>
+		<property name="driverClassName" value="${driverClassName}"></property>
+		<property name="username" value="${username1}"></property>
+		<property name="password" value="${password}"></property>   
+		<property name="initialSize" value="1" ></property>  <!-- 默认初始化连接个数 -->
+		<property name="maxActive" value="100"></property> <!-- 最大允许连接个数 -->
+		<property name="maxIdle" value="100"></property>  <!-- 允许最多有100个等待 -->
+		<property name="filters" value="stat"></property> <!-- 属性类型是字符串，通过别名的方式配置扩展插件，监控统计用的filter:stat  -->
+	</bean>
+	
+	<!-- 集成mybatis -->
+	<!-- 配置session工厂 -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dateSource"></property>
+	</bean>
+	<!-- 配置session -->
+	<bean id="sessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+		<!-- 构造器注入 -->
+		<constructor-arg index="0" ref="sqlSessionFactory"></constructor-arg>
+	</bean>
+	
+	<!-- 扫描mybatis的接口映射：cn包下所有的mapper包 -->
+	<bean id="scannerConfigurer" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="cn.*..*.dao"></property>
+	</bean>
+	
+	<!-- 配置事务管理器 -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dateSource"></property>
+	</bean>
+	
+	<!--默认创建授权  -->
+	<bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">	    
+	    <property name="realm" ref="myDbRealm"/> 
+	</bean>
+	
+	<bean id="myFilter" class="cn.et.conf.MyFilter"></bean>
+	
+	<!-- 后置处理器，负责销毁securityManager -->
+	<bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+	
+	
+	<!-- spring配置ini -->
+	<bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+	    <property name="securityManager" ref="securityManager"/>  
+	    <property name="loginUrl" value="/login.html"/>
+	    <property name="unauthorizedUrl" value="/un.html"/>
+	    <property name="filters">
+	        <util:map>
+	            <entry key="authc" value-ref="myFilter"/>
+	        </util:map>
+	    </property>	
+	    <property name="filterChainDefinitions">
+	        <value>	            
+				/** = authc
+	        </value>
+	    </property>
+	</bean>
+	
+
+	
+	<!-- 设置事务特性 ：
+		method是指你需要某种事务的方法名 
+	 	name="save"也就是说你的某种事务，只用在方法名为save的方法上 
+	 	
+	 	如果为  save*  那就是save开头的方法上都使用这种事务 
+	 	
+ 	-->
+	<tx:advice id="txAdvice" transaction-manager="transactionManager"><!-- 跟事务管理器关联 -->
+		<tx:attributes>
+			<tx:method name="save*" propagation="REQUIRED"/>
+			<tx:method name="update*" propagation="REQUIRED"/>
+			<tx:method name="delete*" propagation="REQUIRED"/>
+			<tx:method name="*" read-only="true"/>
+		</tx:attributes>
+	</tx:advice>
+	<!-- 配置事务 -->
+	<aop:config>
+		<aop:pointcut expression="execution(* cn.*..*.service.*.*(..))" id="myPointCut"/>
+		<!-- 关联切点和事务管理器 -->
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="myPointCut"/>
+	</aop:config>
+</beans>
